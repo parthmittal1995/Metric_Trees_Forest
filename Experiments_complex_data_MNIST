@@ -1,0 +1,79 @@
+## loading MNIST from torchvision ( internet connection needed)
+
+# Run below shell commands if not able to download 
+# the dataset from torchvision
+
+#!wget www.di.ens.fr/~lelarge/MNIST.tar.gz
+#!tar -zxvf MNIST.tar.gz
+
+
+import torch
+import torchvision
+import torchvision.transforms as transforms
+from sklearn.metrics import accuracy_score 
+
+
+transform = transforms.Compose(
+    [transforms.ToTensor()
+     ])
+dataset = torchvision.datasets.MNIST('./', train=False, download=True,
+                             transform=transform)
+
+
+# Manipulating the image tensor data type to input format  
+# Number of points in 'S'
+N = 2000
+
+img_dataset = []
+lbl_dataset = []
+idx = [i for i in range(len(dataset)-2000)]
+for i in np.random.choice(idx,size = N,replace = False):
+  # Getting image and its class label
+  img,lbl  = dataset[i]
+  # Appending them to the img and lables list
+  img_dataset.append(img.reshape(28,28).numpy())
+  lbl_dataset.append(lbl)
+
+
+
+# Setting up the experiments
+# no of repitions
+REPS = 1
+N_QUERY = 500
+
+for rep in range(REPS): # Repitions
+  for apr in ['dft','prn']: # approaches
+    for ntrees in [5,10,25,50,75,100]: # n_trees
+
+      # initializing the metric forest
+      forest = MForest(img_dataset,n_trees= ntrees,distance_func='emd')
+    
+      q_lbls = []
+      r_lbls = []
+      avg_nodes_visited = 0
+      
+      # Searching the 'N_QUERY' no. of queries and 
+      # getting their nearest neighbor
+      for i in range(N_QUERY):
+        # sampling query point q
+        idx = [i for i in range(len(dataset)-2000,len(dataset))]
+        qn = np.random.choice(idx,size=1,replace = False)[0]
+        
+        # getting query image and its class label
+        query,q_lbl  = dataset[qn]
+        query = np.array(query[0])
+        q_lbls.append(q_lbl)
+
+        # Getting the nearest neighbor and num of nodes visited
+        nn1,nv1 = forest.get_nn(query, approach= apr)
+        avg_nodes_visited += nv1/N_QUERY
+
+        # Searching the nn point to get its class label
+        for j in range(len(img_dataset)):
+          if (img_dataset[j]== nn1[1]).all():
+            r_lbls.append(lbl_dataset[j])
+            break
+      
+      # Calculating the accuracy
+      acc = accuracy_score(r_lbls,q_lbls)
+      print('approach: {} | n_trees = {} | accuracy of clustering = {} | avg nodes visited per query = {} '.format(apr,ntrees,acc,round(avg_nodes_visited,2)))
